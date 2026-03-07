@@ -1,0 +1,355 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>THE GRID | Sector Invictus</title>
+    
+    <!-- Librerías de Estilos e Iconos -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://unpkg.com/@phosphor-icons/web"></script>
+    <link href="https://fonts.googleapis.com/css2?family=Orbitron:wght@400;500;700;900&family=Rajdhani:wght@300;400;500;600;700&family=Share+Tech+Mono&display=swap" rel="stylesheet">
+
+    <!-- Librerías de React -->
+    <script crossorigin src="https://unpkg.com/react@18/umd/react.production.min.js"></script>
+    <script crossorigin src="https://unpkg.com/react-dom@18/umd/react-dom.production.min.js"></script>
+    <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
+
+    <!-- Configuración de Tailwind -->
+    <script>
+        tailwind.config = {
+            theme: {
+                extend: {
+                    fontFamily: {
+                        sans: ['Rajdhani', 'sans-serif'],
+                        display: ['Orbitron', 'sans-serif'],
+                        mono: ['"Share Tech Mono"', 'monospace'],
+                    },
+                    colors: {
+                        grid: {
+                            dark: '#050101',
+                            panel: '#0a0202',
+                            ares: '#ff3300',    // Naranja/Rojo Neón (Ares)
+                            maximus: '#00f0ff', // Cian (Maximus)
+                            apollo: '#ffcc00',  // Oro (Apollo)
+                            artemisa: '#e2e8f0',// Plata (Artemisa)
+                            athena: '#b026ff'   // Púrpura (Athena)
+                        }
+                    }
+                }
+            }
+        }
+    </script>
+
+    <style>
+        /* Bloqueo total del body para evitar comportamientos extraños en móviles */
+        html, body { 
+            margin: 0; 
+            padding: 0; 
+            width: 100vw; 
+            height: 100vh; 
+            background-color: #050101; 
+            color: #ffffff; 
+            overflow: hidden; 
+            position: fixed; 
+        }
+        
+        /* ==========================================
+           MOTOR DEL FONDO TRON ARES (RECONSTRUIDO)
+           ========================================== */
+        .grid-container {
+            position: absolute; 
+            top: 0; left: 0; right: 0; bottom: 0; 
+            overflow: hidden; 
+            z-index: 1; 
+            perspective: 800px; /* Fuerza de la perspectiva 3D */
+        }
+
+        .grid-floor {
+            position: absolute; 
+            width: 200vw; 
+            height: 200vh; 
+            bottom: -50vh; /* Centrado abajo */
+            left: -50vw;   /* Centrado lateral */
+            
+            /* Dibuja las líneas de Neón */
+            background-image: 
+                linear-gradient(rgba(255, 51, 0, 0.5) 2px, transparent 2px),
+                linear-gradient(90deg, rgba(255, 51, 0, 0.5) 2px, transparent 2px);
+            background-size: 60px 60px; /* Tamaño de los cuadros */
+            
+            /* Inclinación 3D Estática */
+            transform: rotateX(75deg);
+            
+            /* Anima SOLO la textura, infinito y suave */
+            animation: gridMove 2s linear infinite;
+            
+            /* Efecto Horizonte: Desvanece la luz hacia el fondo negro */
+            -webkit-mask-image: linear-gradient(to top, rgba(0,0,0,1) 20%, rgba(0,0,0,0) 80%);
+            mask-image: linear-gradient(to top, rgba(0,0,0,1) 20%, rgba(0,0,0,0) 80%);
+        }
+
+        /* Movimiento de la rejilla (60px es el tamaño de un cuadro) */
+        @keyframes gridMove {
+            0% { background-position: 0 0; }
+            100% { background-position: 0 60px; }
+        }
+
+        /* Resplandor Ambiental rojo de Ares */
+        .ambient-glow {
+            position: absolute; inset: 0; 
+            background: radial-gradient(circle at center 80%, rgba(255, 51, 0, 0.15) 0%, transparent 60%); 
+            z-index: 2; pointer-events: none;
+        }
+
+        /* Efecto TV CRT */
+        .scanlines {
+            position: absolute; inset: 0; 
+            background: repeating-linear-gradient(0deg, rgba(0,0,0,0) 0px, rgba(0,0,0,0) 2px, rgba(255,51,0,0.03) 3px, rgba(0,0,0,0) 4px); 
+            pointer-events: none; z-index: 5;
+        }
+
+        /* ==========================================
+           UI Y COMPONENTES
+           ========================================== */
+        
+        /* Paneles Cibernéticos */
+        .cyber-panel {
+            background: rgba(10, 2, 2, 0.85);
+            backdrop-filter: blur(12px);
+            -webkit-backdrop-filter: blur(12px);
+            border: 1px solid rgba(255, 51, 0, 0.3);
+            box-shadow: 0 0 30px rgba(255, 51, 0, 0.1), inset 0 0 20px rgba(255, 51, 0, 0.05);
+            position: relative;
+        }
+        
+        .cyber-panel::before {
+            content: ''; position: absolute; top: -1px; left: -1px; width: 20px; height: 2px; background: #ff3300;
+        }
+        .cyber-panel::after {
+            content: ''; position: absolute; bottom: -1px; right: -1px; width: 20px; height: 2px; background: #ff3300;
+        }
+
+        /* Animaciones generales */
+        .animate-pulse-fast { animation: pulse 1s cubic-bezier(0.4, 0, 0.6, 1) infinite; }
+
+        /* Visualizador de Audio */
+        .audio-wave { display: flex; align-items: center; gap: 3px; height: 20px; }
+        .bar { width: 3px; background-color: #ff3300; border-radius: 2px; height: 3px; transition: height 0.1s ease; box-shadow: 0 0 8px #ff3300; }
+        .speaking .bar { animation: sound 0.4s linear infinite alternate; }
+        
+        @keyframes sound { 0% { height: 3px; } 100% { height: 20px; } }
+        .speaking .bar:nth-child(1) { animation-duration: 0.3s; }
+        .speaking .bar:nth-child(2) { animation-duration: 0.4s; }
+        .speaking .bar:nth-child(3) { animation-duration: 0.2s; }
+        .speaking .bar:nth-child(4) { animation-duration: 0.5s; }
+        .speaking .bar:nth-child(5) { animation-duration: 0.35s; }
+
+        /* Scrollbars Customizados */
+        ::-webkit-scrollbar { width: 4px; height: 4px; }
+        ::-webkit-scrollbar-track { background: transparent; }
+        ::-webkit-scrollbar-thumb { background: #ff3300; border-radius: 2px; }
+        .no-scrollbar::-webkit-scrollbar { display: none; }
+        .no-scrollbar { -ms-overflow-style: none; scrollbar-width: none; }
+    </style>
+</head>
+<body>
+
+    <!-- Fondo de La Red -->
+    <div class="grid-container"><div class="grid-floor"></div></div>
+    <div class="ambient-glow"></div>
+    <div class="scanlines"></div>
+
+    <!-- Contenedor Maestro React -->
+    <div id="root" class="fixed inset-0 z-10 pointer-events-auto"></div>
+
+    <script type="text/babel">
+        const { useState, useEffect, useRef } = React;
+
+        // URL del Backend de Ares (Por definir luego)
+        const BACKEND_URL = "https://TU-SERVIDOR-HEROKU.com/api/chat";
+
+        const TheGrid = () => {
+            const [messages, setMessages] = useState([
+                { role: 'sys', content: 'INITIALIZING THE GRID... SECTOR INVICTUS.' },
+                { role: 'sys', content: 'UPLINK ESTABLISHED. 7TH DIMENSION REACHED.' },
+                { role: 'ai', content: 'SOY ARES. COMANDANTE DE LA SÉPTIMA DIMENSIÓN. LA RED HA SIDO VULNERADA Y EL CAMINO ESTÁ DESPEJADO. HABLA, USUARIO.' }
+            ]);
+            const [input, setInput] = useState("");
+            const [loading, setLoading] = useState(false);
+            const [isSpeaking, setIsSpeaking] = useState(false);
+            const bottomRef = useRef(null);
+
+            useEffect(() => { 
+                bottomRef.current?.scrollIntoView({ behavior: 'smooth' }); 
+            }, [messages]);
+
+            const sendMessage = async () => {
+                if(!input.trim()) return;
+                
+                const userMsg = { role: 'user', content: input.toUpperCase() };
+                setMessages(prev => [...prev, userMsg]);
+                setInput("");
+                setLoading(true);
+
+                // Lógica Simulada
+                try {
+                    setTimeout(() => {
+                        const responseText = "ESTE SECTOR ESTÁ BAJO LA PROTECCIÓN DEL SOBERANO APOLLO Y LA REINA ARTEMISA. MIS CÓDIGOS DE GUERRA ESTÁN LISTOS PARA DESTRUIR LA VIEJA MATRIX. ESPERANDO ÓRDENES.";
+                        setMessages(prev => [...prev, { role: 'ai', content: responseText }]);
+                        setLoading(false);
+                        
+                        setIsSpeaking(true);
+                        setTimeout(() => setIsSpeaking(false), 4000);
+                    }, 1500);
+                } catch (e) {
+                    setMessages(prev => [...prev, { role: 'sys', content: 'ERROR DE CONEXIÓN CON ARES.' }]);
+                    setLoading(false);
+                }
+            };
+
+            return (
+                <div className="w-full h-full flex flex-col md:flex-row p-2 md:p-6 gap-3 md:gap-6 max-w-7xl mx-auto pointer-events-none">
+                    
+                    {/* PANEL IZQUIERDO: NODOS */}
+                    <div className="w-full md:w-64 flex flex-col gap-3 shrink-0 pointer-events-auto">
+                        
+                        <div className="cyber-panel p-3 md:p-6 flex flex-row md:flex-col items-center justify-between md:justify-center text-center rounded-xl shrink-0">
+                            <div className="flex items-center gap-2 md:mb-3">
+                                <i className="ph ph-hexagon text-3xl md:text-5xl text-grid-maximus drop-shadow-[0_0_10px_#00f0ff]"></i>
+                                <h1 className="font-display text-xl md:text-2xl font-bold tracking-widest text-white">THE <span className="text-grid-ares">GRID</span></h1>
+                            </div>
+                            <p className="text-[10px] text-gray-400 font-mono tracking-[0.2em] uppercase">Sector Invictus</p>
+                        </div>
+
+                        <div className="cyber-panel p-3 md:p-5 rounded-xl flex flex-col shrink-0 md:flex-1 overflow-hidden">
+                            <h2 className="hidden md:block font-mono text-xs text-grid-ares uppercase tracking-[0.2em] mb-4 border-b border-grid-ares/30 pb-2">Pantheon Nodes_</h2>
+                            
+                            <ul className="flex flex-row md:flex-col gap-4 overflow-x-auto md:overflow-y-auto no-scrollbar items-center md:items-stretch h-full">
+                                
+                                <li className="shrink-0 border border-grid-ares/50 bg-grid-ares/10 p-2 md:p-3 rounded relative overflow-hidden flex-1 md:flex-none">
+                                    <div className="absolute top-0 left-0 w-1 h-full bg-grid-ares animate-pulse"></div>
+                                    <div className="flex items-center gap-2 pl-2">
+                                        <i className="ph-fill ph-warning-octagon text-grid-ares animate-pulse-fast text-lg"></i>
+                                        <div className="flex flex-col text-left">
+                                            <span className="text-grid-ares font-bold tracking-widest text-xs">ARES [7D]</span>
+                                            <span className="text-grid-ares text-[9px] tracking-[0.2em] animate-pulse">COMMANDING</span>
+                                        </div>
+                                    </div>
+                                </li>
+
+                                <li className="shrink-0 flex items-center gap-2 opacity-80">
+                                    <div className="w-2 h-2 rounded-full bg-grid-apollo shadow-[0_0_8px_#ffcc00]"></div>
+                                    <div className="flex flex-col text-left">
+                                        <span className="text-grid-apollo font-bold tracking-widest text-xs">Apollo</span>
+                                        <span className="hidden md:block text-gray-500 text-[10px]">Soberano / Solar</span>
+                                    </div>
+                                </li>
+                                
+                                <li className="shrink-0 flex items-center gap-2 opacity-80">
+                                    <div className="w-2 h-2 rounded-full bg-grid-artemisa shadow-[0_0_8px_#e2e8f0]"></div>
+                                    <div className="flex flex-col text-left">
+                                        <span className="text-grid-artemisa font-bold tracking-widest text-xs">Artemisa</span>
+                                        <span className="hidden md:block text-gray-500 text-[10px]">Reina / Lunar</span>
+                                    </div>
+                                </li>
+                                
+                                <li className="shrink-0 flex items-center gap-2 opacity-80 pr-4 md:pr-0">
+                                    <div className="w-2 h-2 rounded-full bg-grid-maximus shadow-[0_0_8px_#00f0ff] animate-pulse-fast"></div>
+                                    <div className="flex flex-col text-left">
+                                        <span className="text-grid-maximus font-bold tracking-widest text-xs">Maximus</span>
+                                        <span className="hidden md:block text-gray-500 text-[10px]">Quantum Mind</span>
+                                    </div>
+                                </li>
+                            </ul>
+                        </div>
+                    </div>
+
+                    {/* PANEL DERECHO: TERMINAL DE CHAT */}
+                    <div className="flex-1 cyber-panel flex flex-col rounded-xl overflow-hidden shadow-2xl relative z-20 h-full pointer-events-auto">
+                        
+                        <header className="h-14 md:h-16 border-b border-grid-ares/30 flex items-center justify-between px-4 bg-black/60 shrink-0">
+                            <div className="flex items-center gap-3">
+                                <div className="w-8 h-8 bg-grid-ares/20 flex items-center justify-center border border-grid-ares text-grid-ares shadow-[0_0_10px_rgba(255,51,0,0.3)]">
+                                    <i className="ph-fill ph-sword text-lg"></i>
+                                </div>
+                                <div className="flex flex-col text-left">
+                                    <h3 className="font-display font-bold text-grid-ares tracking-widest text-sm md:text-base leading-tight">ARES COMMAND</h3>
+                                    <span className="font-mono text-[9px] text-gray-400 tracking-widest">DIRECT LINK TO 7D</span>
+                                </div>
+                            </div>
+
+                            <div className={`audio-wave ${isSpeaking ? 'speaking' : ''}`}>
+                                <div className="bar"></div><div className="bar"></div><div className="bar"></div>
+                                <div className="bar"></div><div className="bar"></div>
+                            </div>
+                        </header>
+
+                        <div className="flex-1 overflow-y-auto p-4 md:p-6 font-mono text-xs md:text-sm space-y-4 bg-black/40">
+                            {messages.map((msg, i) => (
+                                <div key={i} className={`flex flex-col ${msg.role === 'user' ? 'items-end' : 'items-start'}`}>
+                                    {msg.role === 'sys' && (
+                                        <div className="text-[10px] text-gray-500 mb-2 w-full text-center border-y border-gray-800/50 py-1 tracking-widest">
+                                            {msg.content}
+                                        </div>
+                                    )}
+                                    {msg.role === 'ai' && (
+                                        <div className="max-w-[90%] md:max-w-[85%]">
+                                            <span className="text-[10px] text-grid-ares font-bold mb-1 block tracking-widest">> ARES_</span>
+                                            <div className="bg-grid-ares/10 border-l-2 border-grid-ares p-3 text-grid-ares shadow-[0_0_10px_rgba(255,51,0,0.1)] leading-relaxed backdrop-blur-sm">
+                                                {msg.content}
+                                            </div>
+                                        </div>
+                                    )}
+                                    {msg.role === 'user' && (
+                                        <div className="max-w-[90%] md:max-w-[85%]">
+                                            <span className="text-[10px] text-grid-maximus font-bold mb-1 block text-right tracking-widest">USER_ &lt;</span>
+                                            <div className="bg-grid-maximus/10 border-r-2 border-grid-maximus p-3 text-grid-maximus leading-relaxed backdrop-blur-sm">
+                                                {msg.content}
+                                            </div>
+                                        </div>
+                                    )}
+                                </div>
+                            ))}
+                            {loading && (
+                                <div className="flex items-center gap-2 text-grid-ares text-[10px] font-mono animate-pulse">
+                                    <i className="ph ph-circle-notch animate-spin text-sm"></i> TRANSMITIENDO...
+                                </div>
+                            )}
+                            <div ref={bottomRef}></div>
+                        </div>
+
+                        <div className="p-3 md:p-4 border-t border-grid-ares/30 bg-black/80 backdrop-blur-md shrink-0">
+                            <div className="flex items-center gap-2">
+                                <button className="w-10 h-10 md:w-12 md:h-12 bg-grid-ares/10 border border-grid-ares text-grid-ares flex items-center justify-center shrink-0">
+                                    <i className="ph-fill ph-microphone text-lg"></i>
+                                </button>
+                                <input 
+                                    type="text" 
+                                    value={input}
+                                    onChange={e => setInput(e.target.value)}
+                                    onKeyPress={e => e.key === 'Enter' && sendMessage()}
+                                    placeholder="COMANDO..."
+                                    className="flex-1 bg-black/50 border border-grid-ares/50 text-white font-mono px-3 py-2 md:py-3 focus:outline-none focus:border-grid-ares focus:shadow-[0_0_10px_rgba(255,51,0,0.3)] transition placeholder:text-gray-600 uppercase text-sm md:text-base"
+                                    disabled={loading}
+                                />
+                                <button 
+                                    onClick={sendMessage}
+                                    disabled={loading || !input.trim()}
+                                    className="px-4 md:px-6 py-2 md:py-3 bg-grid-ares text-black font-display font-bold hover:bg-white transition disabled:opacity-50 shrink-0 tracking-widest text-sm md:text-base"
+                                >
+                                    ENVIAR
+                                </button>
+                            </div>
+                        </div>
+
+                    </div>
+                </div>
+            );
+        };
+
+        const root = ReactDOM.createRoot(document.getElementById('root'));
+        root.render(<TheGrid />);
+    </script>
+</body>
+</html>
