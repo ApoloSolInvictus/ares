@@ -117,9 +117,9 @@
         const { useState, useEffect, useRef } = React;
 
         // ==========================================
-        // URL DEL BACKEND (NUEVO APP HEROKU DE ARES)
+        // URL DEL BACKEND SERVERLESS EN VERCEL
         // ==========================================
-        const BACKEND_URL = "https://tron-ares-712faac5df65.herokuapp.com/api/chat";
+        const BACKEND_URL = "/api/chat";
 
         const TheGrid = () => {
             const [messages, setMessages] = useState([
@@ -130,19 +130,35 @@
             const [input, setInput] = useState("");
             const [loading, setLoading] = useState(false);
             const [isSpeaking, setIsSpeaking] = useState(false);
-            
+            const [isListening, setIsListening] = useState(false);
+            const [speechSupported, setSpeechSupported] = useState(true);
+
             const bottomRef = useRef(null);
             const audioRef = useRef(null);
+            const recognitionRef = useRef(null);
 
             // Scroll automático
-            useEffect(() => { 
-                bottomRef.current?.scrollIntoView({ behavior: 'smooth' }); 
+            useEffect(() => {
+                bottomRef.current?.scrollIntoView({ behavior: 'smooth' });
             }, [messages, loading, isSpeaking]);
 
-            const sendMessage = async () => {
-                if(!input.trim()) return;
-                
-                const userMsg = { role: 'user', content: input };
+            useEffect(() => {
+                const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
+                setSpeechSupported(Boolean(SpeechRecognition));
+
+                return () => {
+                    if (recognitionRef.current) {
+                        recognitionRef.current.onend = null;
+                        recognitionRef.current.abort();
+                    }
+                };
+            }, []);
+
+            const sendMessage = async (overrideMessage) => {
+                const outgoingMessage = (overrideMessage ?? input).trim();
+                if(!outgoingMessage || loading) return;
+
+                const userMsg = { role: 'user', content: outgoingMessage };
                 setMessages(prev => [...prev, userMsg]);
                 setInput("");
                 setLoading(true);
@@ -154,7 +170,7 @@
                 }
 
                 try {
-                    // Preparamos el historial para Heroku
+                    // Preparamos el historial para la API serverless
                     const historyForApi = messages
                         .filter(m => m.role !== 'sys') // No enviar msjs de sistema
                         .map(m => ({
@@ -166,7 +182,7 @@
 
                     const response = await fetch(BACKEND_URL, {
                         method: 'POST',
-                        headers: { 
+                        headers: {
                             'Content-Type': 'application/json',
                             'Accept': 'application/json'
                         },
@@ -177,7 +193,8 @@
                     });
 
                     if (!response.ok) {
-                        throw new Error(`Error de comunicación con La Red: ${response.status}`);
+                        const errorPayload = await response.json().catch(() => null);
+                        throw new Error(errorPayload?.details || errorPayload?.error || `Error de comunicación con La Red: ${response.status}`);
                     }
 
                     const data = await response.json();
@@ -189,6 +206,8 @@
                     // Procesar y reproducir audio
                     if (data.audio_base64) {
                         playVoice(data.audio_base64);
+                    } else if (data.voice_warning) {
+                        setMessages(prev => [...prev, { role: 'sys', content: `VOZ NO DISPONIBLE: ${data.voice_warning}` }]);
                     }
 
                 } catch (e) {
@@ -197,6 +216,76 @@
                 } finally {
                     setLoading(false);
                 }
+            };
+
+            const toggleVoiceInput = () => {
+                if (isListening && recognitionRef.current) {
+                    recognitionRef.current.stop();
+                    return;
+                }
+
+                const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
+                if (!SpeechRecognition) {
+                    setSpeechSupported(false);
+                    setMessages(prev => [...prev, {
+                        role: 'sys',
+                        content: 'MICROFONO NO DISPONIBLE EN ESTE NAVEGADOR. USA CHROME, EDGE O SAFARI CON HTTPS.'
+                    }]);
+                    return;
+                }
+
+                let capturedText = "";
+                let shouldSendVoice = true;
+                const baseText = input.trim();
+                const recognition = new SpeechRecognition();
+
+                recognition.lang = navigator.language?.startsWith('es') ? navigator.language : 'es-CR';
+                recognition.interimResults = true;
+                recognition.continuous = false;
+                recognition.maxAlternatives = 1;
+
+                recognition.onstart = () => {
+                    if (audioRef.current) {
+                        audioRef.current.pause();
+                        setIsSpeaking(false);
+                    }
+
+                    setIsListening(true);
+                };
+
+                recognition.onresult = (event) => {
+                    let transcript = "";
+
+                    for (let i = 0; i < event.results.length; i++) {
+                        transcript += event.results[i][0].transcript;
+                    }
+
+                    capturedText = transcript.trim();
+                    setInput([baseText, capturedText].filter(Boolean).join(" "));
+                };
+
+                recognition.onerror = (event) => {
+                    shouldSendVoice = false;
+                    setIsListening(false);
+                    console.error("Error de microfono:", event.error);
+                    setMessages(prev => [...prev, {
+                        role: 'sys',
+                        content: `MICROFONO: ${event.error === 'not-allowed' ? 'PERMISO DENEGADO' : event.error.toUpperCase()}`
+                    }]);
+                };
+
+                recognition.onend = () => {
+                    setIsListening(false);
+                    recognitionRef.current = null;
+
+                    const finalText = [baseText, capturedText].filter(Boolean).join(" ").trim();
+                    if (shouldSendVoice && capturedText && finalText) {
+                        sendMessage(finalText);
+                    }
+                };
+
+                recognitionRef.current = recognition;
+                recognition.start();
             };
 
             const playVoice = (base64Data) => {
@@ -336,8 +425,19 @@
 
                             <div className="p-3 md:p-4 border-t border-grid-ares/30 bg-black/80 backdrop-blur-md shrink-0">
                                 <div className="flex items-center gap-2">
-                                    <button className="w-10 h-10 md:w-12 md:h-12 bg-grid-ares/10 border border-grid-ares text-grid-ares flex items-center justify-center shrink-0">
-                                        <i className="ph-fill ph-microphone text-lg"></i>
+                                    <button
+                                        onClick={toggleVoiceInput}
+                                        disabled={loading || !speechSupported}
+                                        aria-label={isListening ? 'Detener microfono' : 'Hablar con ARES'}
+                                        aria-pressed={isListening}
+                                        title={speechSupported ? (isListening ? 'Detener microfono' : 'Hablar con ARES') : 'Microfono no compatible'}
+                                        className={`w-10 h-10 md:w-12 md:h-12 border flex items-center justify-center shrink-0 transition ${
+                                            isListening
+                                                ? 'bg-grid-maximus text-black border-grid-maximus shadow-[0_0_14px_rgba(0,240,255,0.65)] animate-pulse-fast'
+                                                : 'bg-grid-ares/10 border-grid-ares text-grid-ares hover:bg-grid-ares hover:text-black disabled:opacity-40'
+                                        }`}
+                                    >
+                                        <i className={`ph-fill ${isListening ? 'ph-microphone-slash' : 'ph-microphone'} text-lg`}></i>
                                     </button>
                                     <input 
                                         type="text" 
